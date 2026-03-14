@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "../generated/prisma/client"; // Point to your custom path
+import { PrismaClient } from "../prisma/generated/client"; // Point to your custom path
 
 // To prevent multiple instances of Prisma Client in development 
 // (which can exhaust your database connection pool)
