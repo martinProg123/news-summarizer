@@ -2,13 +2,23 @@
 // npm install --save-dev prisma dotenv
 import "dotenv/config";
 import { defineConfig } from "prisma/config";
+import { Pool } from 'pg';
+import { PrismaPg } from '@prisma/adapter-pg';
+
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const adapter = new PrismaPg(pool as any);
 
 export default defineConfig({
   schema: "prisma/schema.prisma",
   migrations: {
     path: "prisma/migrations",
   },
+  // datasource: {
+  //   url: process.env["DATABASE_URL"]|| "postgresql://news_admin:news_adminPW@localhost:4646/news_db?schema=public",
+  // },
+  earlyAccess: true, // Required for some Prisma 7 features
   datasource: {
+    adapter: adapter,
     url: process.env["DATABASE_URL"]|| "postgresql://news_admin:news_adminPW@localhost:4646/news_db?schema=public",
   },
 });
