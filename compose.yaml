@@ -1,0 +1,16 @@
+services:
+  db:
+    image: pgvector/pgvector:pg17 # Official image with vector support
+    container_name: news_db
+    ports:
+      - "4646:5432"
+    environment:
+      POSTGRES_USER: news_admin
+      POSTGRES_PASSWORD: news_adminPW
+      POSTGRES_DB: news_db
+    volumes:
+      - ./server/db/init:/docker-entrypoint-initdb.d
+      - postgres_data:/var/lib/postgresql/data      # <--- ADD THIS LINE
+
+volumes:
+  postgres_data:

@@ -1,0 +1,44 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+  previewFeatures = ["postgresqlExtensions", "typedSql"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [vector] // Enables the pgvector extension
+}
+
+model Article {
+  id          BigInt   @id @default(autoincrement())
+  title       String
+  content     String   @db.Text
+  summary     String?  @db.Text
+  url         String   @unique
+  source      String
+  publishAt   DateTime @default(now()) @map("publish_at")
+  metadata    Json?
+  
+  // 1024 dimensions for your Qwen model
+  embedding   Unsupported("vector(1024)")?
+
+  @@map("article")
+}
+
+model Subscriber {
+  id          BigInt    @id @default(autoincrement())
+  email       String    @unique
+  topics      String[]
+  sentFreq    String    @default("24H") @map("sent_freq")
+  isUnsub     Boolean   @default(false) @map("is_unsub")
+  lastSentAt  DateTime? @map("last_sent_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@map("subscribers")
+}

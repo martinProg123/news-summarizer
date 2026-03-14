@@ -1,0 +1,38 @@
+node_modules/
+client/node_modules/
+server/node_modules/
+
+.env
+server/.env
+client/.env
+*.env.local
+
+# Build outputs
+dist/
+build/
+client/dist/
+server/dist/
+.shared/
+
+# Prisma generated client (since yours is in a custom path)
+server/generated/
+
+# Docker / Database
+.db_data/
+postgres-data/
+
+# OS Metadata
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+
+.vite/
+scratch.txt
+
+# transformer
+.cache/
+models/
+onnx/
