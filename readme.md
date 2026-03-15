@@ -1,5 +1,7 @@
 A single page react + postgres db(docker) + rsshub(docker) + express js + ollama(local LLM)
 
+[Example output](server/example_email_output.html)
+
 - Grab daily rss feed of different topic(world, hk, business, sports) from rthk, hk01 and yahoo hk periodically
 - user can choose to subscribe different topic 
 - Vectorize each article+title and topic, get top 15 related articles from each topic
