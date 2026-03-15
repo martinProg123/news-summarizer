@@ -231,6 +231,7 @@ cron.schedule('0 8 * * *', async () => {
         for (const topicKey of topicSummaryMap.keys()) {
             try {
                 htmlEmail = `<h2>Topic: ${topicKey}</h2>`
+                htmlEmail = `<h3>Overall summary: ${topicKey}</h3>`
                 const respon = await axios.post("http://localhost:11434/api/chat", {
                     "model": "gemma3:12b",
                     "messages": [
@@ -246,6 +247,7 @@ cron.schedule('0 8 * * *', async () => {
                 })
                 htmlEmail += respon.data.message?.content
                 htmlEmail += `<hr />`
+                htmlEmail += topicSummaryMap.get(topicKey)
                 console.log('FULL HTML: ')
                 console.log(htmlEmail)
                 topicSummaryHtml.set(topicKey, htmlEmail)
