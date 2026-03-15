@@ -26,6 +26,7 @@ model Article {
 
   // 1024 dimensions for your Qwen model
   embedding Unsupported("vector(1024)")?
+  topic     String
 
   @@map("article")
 }

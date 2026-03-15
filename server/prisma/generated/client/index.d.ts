@@ -999,6 +999,7 @@ export namespace Prisma {
     url: string | null
     source: string | null
     publishAt: Date | null
+    topic: string | null
   }
 
   export type ArticleMaxAggregateOutputType = {
@@ -1009,6 +1010,7 @@ export namespace Prisma {
     url: string | null
     source: string | null
     publishAt: Date | null
+    topic: string | null
   }
 
   export type ArticleCountAggregateOutputType = {
@@ -1020,6 +1022,7 @@ export namespace Prisma {
     source: number
     publishAt: number
     metadata: number
+    topic: number
     _all: number
   }
 
@@ -1040,6 +1043,7 @@ export namespace Prisma {
     url?: true
     source?: true
     publishAt?: true
+    topic?: true
   }
 
   export type ArticleMaxAggregateInputType = {
@@ -1050,6 +1054,7 @@ export namespace Prisma {
     url?: true
     source?: true
     publishAt?: true
+    topic?: true
   }
 
   export type ArticleCountAggregateInputType = {
@@ -1061,6 +1066,7 @@ export namespace Prisma {
     source?: true
     publishAt?: true
     metadata?: true
+    topic?: true
     _all?: true
   }
 
@@ -1159,6 +1165,7 @@ export namespace Prisma {
     source: string
     publishAt: Date
     metadata: JsonValue | null
+    topic: string
     _count: ArticleCountAggregateOutputType | null
     _avg: ArticleAvgAggregateOutputType | null
     _sum: ArticleSumAggregateOutputType | null
@@ -1189,6 +1196,7 @@ export namespace Prisma {
     source?: boolean
     publishAt?: boolean
     metadata?: boolean
+    topic?: boolean
   }, ExtArgs["result"]["article"]>
 
   export type ArticleSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
@@ -1200,6 +1208,7 @@ export namespace Prisma {
     source?: boolean
     publishAt?: boolean
     metadata?: boolean
+    topic?: boolean
   }, ExtArgs["result"]["article"]>
 
   export type ArticleSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
@@ -1211,6 +1220,7 @@ export namespace Prisma {
     source?: boolean
     publishAt?: boolean
     metadata?: boolean
+    topic?: boolean
   }, ExtArgs["result"]["article"]>
 
   export type ArticleSelectScalar = {
@@ -1222,9 +1232,10 @@ export namespace Prisma {
     source?: boolean
     publishAt?: boolean
     metadata?: boolean
+    topic?: boolean
   }
 
-  export type ArticleOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "title" | "content" | "summary" | "url" | "source" | "publishAt" | "metadata", ExtArgs["result"]["article"]>
+  export type ArticleOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "title" | "content" | "summary" | "url" | "source" | "publishAt" | "metadata" | "topic", ExtArgs["result"]["article"]>
 
   export type $ArticlePayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     name: "Article"
@@ -1238,6 +1249,7 @@ export namespace Prisma {
       source: string
       publishAt: Date
       metadata: Prisma.JsonValue | null
+      topic: string
     }, ExtArgs["result"]["article"]>
     composites: {}
   }
@@ -1669,6 +1681,7 @@ export namespace Prisma {
     readonly source: FieldRef<"Article", 'String'>
     readonly publishAt: FieldRef<"Article", 'DateTime'>
     readonly metadata: FieldRef<"Article", 'Json'>
+    readonly topic: FieldRef<"Article", 'String'>
   }
     
 
@@ -3118,7 +3131,8 @@ export namespace Prisma {
     url: 'url',
     source: 'source',
     publishAt: 'publishAt',
-    metadata: 'metadata'
+    metadata: 'metadata',
+    topic: 'topic'
   };
 
   export type ArticleScalarFieldEnum = (typeof ArticleScalarFieldEnum)[keyof typeof ArticleScalarFieldEnum]
@@ -3289,6 +3303,7 @@ export namespace Prisma {
     source?: StringFilter<"Article"> | string
     publishAt?: DateTimeFilter<"Article"> | Date | string
     metadata?: JsonNullableFilter<"Article">
+    topic?: StringFilter<"Article"> | string
   }
 
   export type ArticleOrderByWithRelationInput = {
@@ -3300,6 +3315,7 @@ export namespace Prisma {
     source?: SortOrder
     publishAt?: SortOrder
     metadata?: SortOrderInput | SortOrder
+    topic?: SortOrder
   }
 
   export type ArticleWhereUniqueInput = Prisma.AtLeast<{
@@ -3314,6 +3330,7 @@ export namespace Prisma {
     source?: StringFilter<"Article"> | string
     publishAt?: DateTimeFilter<"Article"> | Date | string
     metadata?: JsonNullableFilter<"Article">
+    topic?: StringFilter<"Article"> | string
   }, "id" | "url">
 
   export type ArticleOrderByWithAggregationInput = {
@@ -3325,6 +3342,7 @@ export namespace Prisma {
     source?: SortOrder
     publishAt?: SortOrder
     metadata?: SortOrderInput | SortOrder
+    topic?: SortOrder
     _count?: ArticleCountOrderByAggregateInput
     _avg?: ArticleAvgOrderByAggregateInput
     _max?: ArticleMaxOrderByAggregateInput
@@ -3344,6 +3362,7 @@ export namespace Prisma {
     source?: StringWithAggregatesFilter<"Article"> | string
     publishAt?: DateTimeWithAggregatesFilter<"Article"> | Date | string
     metadata?: JsonNullableWithAggregatesFilter<"Article">
+    topic?: StringWithAggregatesFilter<"Article"> | string
   }
 
   export type SubscriberWhereInput = {
@@ -3419,6 +3438,7 @@ export namespace Prisma {
     source: string
     publishAt?: Date | string
     metadata?: NullableJsonNullValueInput | InputJsonValue
+    topic: string
   }
 
   export type ArticleUncheckedCreateInput = {
@@ -3430,6 +3450,7 @@ export namespace Prisma {
     source: string
     publishAt?: Date | string
     metadata?: NullableJsonNullValueInput | InputJsonValue
+    topic: string
   }
 
   export type ArticleUpdateInput = {
@@ -3441,6 +3462,7 @@ export namespace Prisma {
     source?: StringFieldUpdateOperationsInput | string
     publishAt?: DateTimeFieldUpdateOperationsInput | Date | string
     metadata?: NullableJsonNullValueInput | InputJsonValue
+    topic?: StringFieldUpdateOperationsInput | string
   }
 
   export type ArticleUncheckedUpdateInput = {
@@ -3452,6 +3474,7 @@ export namespace Prisma {
     source?: StringFieldUpdateOperationsInput | string
     publishAt?: DateTimeFieldUpdateOperationsInput | Date | string
     metadata?: NullableJsonNullValueInput | InputJsonValue
+    topic?: StringFieldUpdateOperationsInput | string
   }
 
   export type ArticleCreateManyInput = {
@@ -3463,6 +3486,7 @@ export namespace Prisma {
     source: string
     publishAt?: Date | string
     metadata?: NullableJsonNullValueInput | InputJsonValue
+    topic: string
   }
 
   export type ArticleUpdateManyMutationInput = {
@@ -3474,6 +3498,7 @@ export namespace Prisma {
     source?: StringFieldUpdateOperationsInput | string
     publishAt?: DateTimeFieldUpdateOperationsInput | Date | string
     metadata?: NullableJsonNullValueInput | InputJsonValue
+    topic?: StringFieldUpdateOperationsInput | string
   }
 
   export type ArticleUncheckedUpdateManyInput = {
@@ -3485,6 +3510,7 @@ export namespace Prisma {
     source?: StringFieldUpdateOperationsInput | string
     publishAt?: DateTimeFieldUpdateOperationsInput | Date | string
     metadata?: NullableJsonNullValueInput | InputJsonValue
+    topic?: StringFieldUpdateOperationsInput | string
   }
 
   export type SubscriberCreateInput = {
@@ -3646,6 +3672,7 @@ export namespace Prisma {
     source?: SortOrder
     publishAt?: SortOrder
     metadata?: SortOrder
+    topic?: SortOrder
   }
 
   export type ArticleAvgOrderByAggregateInput = {
@@ -3660,6 +3687,7 @@ export namespace Prisma {
     url?: SortOrder
     source?: SortOrder
     publishAt?: SortOrder
+    topic?: SortOrder
   }
 
   export type ArticleMinOrderByAggregateInput = {
@@ -3670,6 +3698,7 @@ export namespace Prisma {
     url?: SortOrder
     source?: SortOrder
     publishAt?: SortOrder
+    topic?: SortOrder
   }
 
   export type ArticleSumOrderByAggregateInput = {

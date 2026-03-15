@@ -128,7 +128,8 @@ exports.Prisma.ArticleScalarFieldEnum = {
   url: 'url',
   source: 'source',
   publishAt: 'publishAt',
-  metadata: 'metadata'
+  metadata: 'metadata',
+  topic: 'topic'
 };
 
 exports.Prisma.SubscriberScalarFieldEnum = {
