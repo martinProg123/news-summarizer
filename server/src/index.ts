@@ -4,7 +4,6 @@
 import express from "express";
 import cors from 'cors';
 import { prisma } from "./db";
-// import { getRelatedArticles } from "../generated/prisma/sql"; // If using TypedSQL
 import cron from 'node-cron'
 import { Worker } from 'node:worker_threads';
 import path from 'node:path';
@@ -13,7 +12,6 @@ import Parser from 'rss-parser';
 import axios from 'axios';
 import { JSDOM } from 'jsdom';
 import { Readability } from '@mozilla/readability';
-// import { topics as sharedTopics, duration as sharedDuration } from "@shared/constant"
 import { z } from "zod";
 import { Resend } from 'resend';
 import { MailerSend, EmailParams, Sender, Recipient } from "mailersend";
@@ -24,7 +22,14 @@ const mailerSend = new MailerSend({
 // Use an environment variable for security
 // const resend = new Resend(process.env.RESEND_API_KEY);
 
-const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+const topicQueries: Record<string, string> = {
+    "Hong Kong": "Hong Kong news: local affairs, government, society, Hong Kong politics, city events",
+    "World": "World news: international affairs, global events, geopolitics, international relations",
+    "Business": "Business news: finance, markets, economy, companies, stocks, commerce, investment",
+    "Sport": "Sports news: athletics, competitions, matches, sports events, players, tournaments"
+};
+
 const randomWait = (min = 2000, max = 6000) => {
     const ms = Math.floor(Math.random() * (max - min + 1) + min);
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -38,6 +43,51 @@ const USER_AGENTS = [
     'Mozilla/5.0 (iPhone; CPU iPhone OS 17_3_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1'
 ];
 const getRandomUserAgent = () => USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
+
+const toISOStringHK = (date: Date = new Date()): string => {
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    const d = new Date(date);
+    const iso = d.toLocaleString('en-GB', { timeZone: 'Asia/Hong_Kong', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+    const [day, month, year, hour, minute, second] = iso.split(/[\s,:]/).filter(Boolean);
+    return `${year}-${month}-${day}T${hour}:${minute}:${second}.000+08:00`;
+};
+
+// worker
+
+type workerMsg = { status: 'success' | 'error', vector?: number[], error?: string }
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const worker = new Worker(path.resolve(__dirname, './embed-worker.js'));
+
+function generateEmbedding(text: string): Promise<number[]> {
+    return new Promise((resolve, reject) => {
+        worker.postMessage(text);
+
+        const onMessage = (response: workerMsg) => {
+            if (response.status === 'success' && response.vector) {
+                resolve(response.vector);
+            } else {
+                reject(new Error(response.error || 'No vector returned'));
+            }
+            cleanup();
+        };
+
+        const onError = (err: string) => {
+            reject(err);
+            cleanup();
+        };
+
+        const cleanup = () => {
+            worker.off('message', onMessage);
+            worker.off('error', onError);
+        };
+
+        worker.on('message', onMessage);
+        worker.on('error', onError);
+    });
+}
+
+
 
 const router = express();
 // 1. Configure CORS options
@@ -67,18 +117,16 @@ const rssParser = new Parser({
 });
 
 const article_systemPrompt = `
-Role: You are a professional news editor
-Task: provide a concise summary a article, given title, content and published date
+Role: 你係一個專業既香港新聞編輯
+Task: 根據標題、內容同埋發佈日期，提供一篇新聞既簡潔摘要
+
 Formatting Rules:
-    provide "SUMMARY:" followed by a paragraph of 2-3 sentence.
-
-    Use a neutral, objective tone.
-
-    Keep key entities (names, prices, dates) intact.
-
-    Only reply with json format:
+    - 提供 "SUMMARY:" 跟住2-3句既段落總結
+    - 使用客觀、中立既語氣
+    - 保持關鍵資訊（名稱、日期、數字）完整
+    - 只可以用JSON格式回覆：
     {
-    "summary": "Your summary paragraph"
+    "summary": "你既摘要段落"
     }
 `
 
@@ -126,7 +174,7 @@ Output **only** the HTML content — no explanation, no markdown, no code fences
 
 cron.schedule('0 */6 * * *', async () => {
     // cron.schedule('* * * * *', async () => {
-    console.log(new Date().toISOString() + ' cron scrap...');
+    console.log(toISOStringHK() + ' cron scrap...');
 
     const source = [
         {
@@ -166,7 +214,7 @@ cron.schedule('0 */6 * * *', async () => {
 });
 
 cron.schedule('0 1 * * *', async () => {
-    console.log(`${new Date().toISOString()} Starting database maintenance...`);
+    console.log(`${toISOStringHK()} Starting database maintenance...`);
     await deleteOldArticles();
 });
 
@@ -182,7 +230,7 @@ async function generateDailyDigest() {
     const topicSummaryHtml = new Map<string, string>();
 
     for (const [topic, topicQuery] of Object.entries(topicQueries)) {
-        console.log(`${new Date().toISOString()} Processing topic: ${topic}`);
+        console.log(`${toISOStringHK()} Processing topic: ${topic}`);
         
         let articles: { id: BigInt; title: string; url: string; content: string; embedding: any; publishAt: Date }[];
 
@@ -191,9 +239,9 @@ async function generateDailyDigest() {
             const embeddingStr = `[${topicEmbedding.join(',')}]`;
 
             const rawArticles = await prisma.$queryRaw<any[]>`
-                SELECT id, title, url, content, embedding, "publishAt"
+                SELECT id, title, url, content, embedding, "publish_at"
                 FROM article
-                WHERE "publishAt" >= ${oneDayAgo}
+                WHERE "publish_at" >= ${oneDayAgo}
                   AND topic = ${topic}
                   AND embedding IS NOT NULL
                 ORDER BY embedding <=> ${embeddingStr}::vector
@@ -203,11 +251,11 @@ async function generateDailyDigest() {
 
             if (articles.length < 10) {
                 const fallbackArticles = await prisma.$queryRaw<any[]>`
-                    SELECT id, title, url, content, embedding, "publishAt"
+                    SELECT id, title, url, content, embedding, "publish_at"
                     FROM article
-                    WHERE "publishAt" >= ${oneDayAgo}
+                    WHERE "publish_at" >= ${oneDayAgo}
                       AND topic = ${topic}
-                    ORDER BY "publishAt" DESC
+                    ORDER BY "publish_at" DESC
                     LIMIT 15
                 `;
                 const existingIds = new Set(articles.map(a => a.id.toString()));
@@ -217,11 +265,11 @@ async function generateDailyDigest() {
         } catch (err) {
             console.error(`Vector search failed for ${topic}, using fallback:`, err);
             articles = await prisma.$queryRaw<any[]>`
-                SELECT id, title, url, content, embedding, "publishAt"
+                SELECT id, title, url, content, embedding, "publish_at"
                 FROM article
-                WHERE "publishAt" >= ${oneDayAgo}
+                WHERE "publish_at" >= ${oneDayAgo}
                   AND topic = ${topic}
-                ORDER BY "publishAt" DESC
+                ORDER BY "publish_at" DESC
                 LIMIT 15
             `;
         }
@@ -271,13 +319,14 @@ async function generateDailyDigest() {
 
             const overallSummary = response.data.message?.content || "Summary unavailable.";
 
-            const formatDate = (d: Date) => {
+            const formatDate = (d: Date | string) => {
                 const date = new Date(d);
+                if (isNaN(date.getTime())) return 'Invalid Date';
                 const day = date.getDate();
-                const month = date.toLocaleString('en-GB', { month: 'short' });
+                const month = date.toLocaleString('en-GB', { month: 'short', timeZone: 'Asia/Hong_Kong' });
                 const year = date.getFullYear();
-                const hours = date.getHours().toString().padStart(2, '0');
-                const minutes = date.getMinutes().toString().padStart(2, '0');
+                const hours = date.toLocaleString('en-GB', { hour: '2-digit', hour12: false, timeZone: 'Asia/Hong_Kong' });
+                const minutes = date.toLocaleString('en-GB', { minute: '2-digit', timeZone: 'Asia/Hong_Kong' });
                 return `${day} ${month} ${year} ${hours}:${minutes}`;
             };
 
@@ -451,7 +500,7 @@ const scrapeNewsFromRSS = async (feedsUrl: string, site: string, topic: string) 
                     if (embedding) {
                         const embeddingStr = `[${embedding.join(',')}]`;
                         await prisma.$queryRaw`
-                            INSERT INTO article (title, content, summary, url, source, "publishAt", metadata, embedding, topic)
+                            INSERT INTO article (title, content, summary, url, source, "publish_at", metadata, embedding, topic)
                             VALUES (${newsArticle.title || "Untitled"}, ${newsArticle.textContent}, NULL, ${item.link}, ${site}, ${publishDate}, ${JSON.stringify({ site })}, ${embeddingStr}::vector, ${topic})
                         `;
                     } else {
@@ -535,88 +584,11 @@ const deleteOldArticles = async () => {
     }
 };
 
-export default router;
-
-// One-time script to embed existing articles
-(async () => {
-    const shouldRun = process.argv.includes('--embed-existing');
-    if (!shouldRun) return;
-
-    console.log(`${new Date().toISOString()} 🔄 Starting embedding migration for existing articles...`);
-
-    const articles = await prisma.$queryRaw<any[]>`
-        SELECT id, title, content
-        FROM article
-        WHERE embedding IS NULL
-        LIMIT 100
-    `;
-
-    console.log(`Found ${articles.length} articles without embeddings`);
-
-    for (const article of articles) {
-        try {
-            const textToEmbed = `${article.title} ${article.content.slice(0, 2000)}`;
-            const embedding = await generateEmbedding(textToEmbed);
-            const embeddingStr = `[${embedding.join(',')}]`;
-
-            await prisma.$queryRaw`
-                UPDATE article
-                SET embedding = ${embeddingStr}::vector
-                WHERE id = ${article.id}
-            `;
-
-            console.log(`✅ Embedded: ${article.title.slice(0, 50)}...`);
-        } catch (err) {
-            console.error(`❌ Failed to embed article ${article.id}:`, err);
-        }
-    }
-
-    console.log('🎉 Embedding migration complete');
-    process.exit(0);
-})();
 
 // Manual test run
-// (async () => {
-//     console.log(new Date().toISOString() + " 📧 Generating and sending daily email...");
-//     await generateDailyDigest();
-// })();
+(async () => {
+    console.log(toISOStringHK() + " 📧 Generating and sending daily email...");
+    await generateDailyDigest();
+})();
 
-type workerMsg = { status: 'success' | 'error', vector?: number[], error?: string }
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const worker = new Worker(path.resolve(__dirname, './embed-worker.js'));
-
-function generateEmbedding(text: string): Promise<number[]> {
-    return new Promise((resolve, reject) => {
-        worker.postMessage(text);
-
-        const onMessage = (response: workerMsg) => {
-            if (response.status === 'success' && response.vector) {
-                resolve(response.vector);
-            } else {
-                reject(new Error(response.error || 'No vector returned'));
-            }
-            cleanup();
-        };
-
-        const onError = (err: string) => {
-            reject(err);
-            cleanup();
-        };
-
-        const cleanup = () => {
-            worker.off('message', onMessage);
-            worker.off('error', onError);
-        };
-
-        worker.on('message', onMessage);
-        worker.on('error', onError);
-    });
-}
-
-const topicQueries: Record<string, string> = {
-    "Hong Kong": "Hong Kong news: local affairs, government, society, Hong Kong politics, city events",
-    "World": "World news: international affairs, global events, geopolitics, international relations",
-    "Business": "Business news: finance, markets, economy, companies, stocks, commerce, investment",
-    "Sport": "Sports news: athletics, competitions, matches, sports events, players, tournaments"
-};
+export default router;
