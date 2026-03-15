@@ -52,8 +52,10 @@ const toISOStringHK = (date: Date = new Date()): string => {
         return pad(method === 'getMonth' ? parseInt(getPartStr('getMonth')) + 1 : parseInt(getPartStr(method)));
     };
     const getPartStr = (method: string) => {
-        const str = d.toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong', 
-            [method === 'getMonth' ? 'month' : method === 'getDate' ? 'day' : method === 'getHours' ? 'hour' : method === 'getMinutes' ? 'minute' : method === 'getSeconds' ? 'second' : 'year']: 'numeric' });
+        const str = d.toLocaleString('en-US', {
+            timeZone: 'Asia/Hong_Kong',
+            [method === 'getMonth' ? 'month' : method === 'getDate' ? 'day' : method === 'getHours' ? 'hour' : method === 'getMinutes' ? 'minute' : method === 'getSeconds' ? 'second' : 'year']: 'numeric'
+        });
         return str;
     };
     const year = d.toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong', year: 'numeric' });
@@ -187,7 +189,7 @@ Output **only** the HTML content — no explanation, no markdown, no code fences
 `
 
 
-
+//get rss feed
 cron.schedule('0 */6 * * *', async () => {
     // cron.schedule('* * * * *', async () => {
     console.log(toISOStringHK() + ' cron scrap...');
@@ -229,15 +231,16 @@ cron.schedule('0 */6 * * *', async () => {
     }));
 });
 
+// del old article
 cron.schedule('0 1 * * *', async () => {
     console.log(`${toISOStringHK()} Starting database maintenance...`);
     await deleteOldArticles();
 });
 
 
-// // JOB 2: Daily Email Digest (Runs every day at 8:00 AM)
+// Daily Email Digest (Runs every day at 8:00 AM)
 cron.schedule('0 8 * * *', async () => {
-    console.log(toISOStringHK()+" Generating and sending daily email...");
+    console.log(toISOStringHK() + " Generating and sending daily email...");
     await generateDailyDigest();
 });
 
@@ -247,7 +250,7 @@ async function generateDailyDigest() {
 
     for (const [topic, topicQuery] of Object.entries(topicQueries)) {
         console.log(`${toISOStringHK()} Processing topic: ${topic}`);
-        
+
         let articles: { id: BigInt; title: string; url: string; content: string; embedding: any; publishAt: Date }[];
 
         try {
@@ -323,7 +326,8 @@ async function generateDailyDigest() {
 
         try {
             const response = await axios.post("http://localhost:11434/api/chat", {
-                "model": "gemma3:12b",
+                "model": "gemma3:4b",
+                // "model": "gemma3:12b",
                 "messages": [
                     { "role": "system", "content": overallSummarySystemprompt },
                     {
@@ -333,11 +337,15 @@ async function generateDailyDigest() {
                 "stream": false
             }, { timeout: 120000 });
 
-            const overallSummary = response.data.message?.content || "Summary unavailable.";
+            const overallSummary = (response.data.message?.content
+                .replace(/```html\s*/gi, '')
+                .replace(/```\s*$/gm, '')
+                .trim())
+                || "Summary unavailable.";
 
             const formatDate = (d: Date | string) => {
                 const date = new Date(d);
-                if (isNaN(date.getTime())) return 'Invalid Date';
+                if (isNaN(date.getTime())) return d;
                 const day = date.getDate();
                 const month = date.toLocaleString('en-GB', { month: 'short', timeZone: 'Asia/Hong_Kong' });
                 const year = date.getFullYear();
@@ -384,9 +392,9 @@ async function generateDailyDigest() {
             htmlEmail += topicSummaryHtml.get(selectedTopic) || '';
         }
 
-        console.log(`${user.email} - Email content generated`);
-        console.log('FULL HTML:');
+        console.log(`${user.email} - Email content generated: `);
         console.log(htmlEmail);
+        console.log(`Email content generated ened`);
     }
 
     process.exit(0);
@@ -567,29 +575,66 @@ const getSummary = async (title: string, cleanContent: string): Promise<string |
         });
 
         const rawContent = response.data.message?.content || '';
-        const cleanedContent = rawContent
-            .replace(/```html\s*/gi, '')
-            .replace(/```\s*$/gm, '')
-            .trim();
-        
-        const jsonMatch = cleanedContent.match(/\{[\s\S]*\}/);
-        
-        if (jsonMatch) {
-            try {
-                const parsed = JSON.parse(jsonMatch[0]);
-                return parsed.summary || null;
-            } catch (e) {
-                console.error("JSON parse error:", e);
-                return cleanedContent.replace(/\{[\s\S]*\}/, '').trim() || null;
-            }
-        }
-        
-        return cleanedContent || null;
+        return extractSummary(rawContent);
     } catch (err) {
         console.error("Failed to get summary:", err);
         return null;
     }
-}
+};
+
+const extractSummary = (text: string): string | null => {
+    const cleaned = text
+        .replace(/```html\s*/gi, '')
+        .replace(/```json\s*/gi, '')
+        .replace(/```\s*$/gm, '')
+        .trim();
+
+    // 1. Try direct JSON.parse
+    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+        try {
+            const parsed = JSON.parse(jsonMatch[0]);
+            if (parsed.summary && typeof parsed.summary === 'string' && parsed.summary.length > 10) {
+                return parsed.summary;
+            }
+        } catch (e) {
+            // Continue to fallbacks
+        }
+    }
+
+    // 2. Try regex extraction: "summary": "value" or 'summary': 'value'
+    const summaryMatch = cleaned.match(/(?:"|')summary(?:"|')\s*:\s*(?:"|')([^"']{20,})/i);
+    if (summaryMatch && summaryMatch[1]) {
+        return summaryMatch[1];
+    }
+
+    // 3. Try to find any key with summary-like value (like "summary": "...")
+    const anySummaryMatch = cleaned.match(/"([^"]+)":\s*"([^"]{20,}?)"/);
+    if (anySummaryMatch && anySummaryMatch[2] && anySummaryMatch[2].length > 15) {
+        return anySummaryMatch[2];
+    }
+
+    // 4. If no JSON, try to extract first substantial paragraph (skip if it looks like prompt remnants)
+    if (!jsonMatch) {
+        const paragraphs = cleaned.split(/\n\n+/).filter(p => p.trim().length > 20);
+        for (const p of paragraphs) {
+            const trimmed = p.trim();
+            // Skip if looks like prompt/system message
+            if (trimmed.match(/^(Role:|Task:|Formatting|Instruction:|以下是)/i)) continue;
+            // Skip if too short or looks like garbled text
+            if (trimmed.length < 30 || trimmed.length > 1000) continue;
+            // Return first valid-looking paragraph
+            return trimmed;
+        }
+    }
+
+    // 5. Last resort: return cleaned text if substantial
+    if (cleaned.length > 20 && cleaned.length < 2000) {
+        return cleaned;
+    }
+
+    return null;
+};
 
 
 const deleteOldArticles = async () => {
