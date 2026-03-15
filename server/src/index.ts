@@ -47,8 +47,21 @@ const getRandomUserAgent = () => USER_AGENTS[Math.floor(Math.random() * USER_AGE
 const toISOStringHK = (date: Date = new Date()): string => {
     const pad = (n: number) => n.toString().padStart(2, '0');
     const d = new Date(date);
-    const iso = d.toLocaleString('en-GB', { timeZone: 'Asia/Hong_Kong', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
-    const [day, month, year, hour, minute, second] = iso.split(/[\s,:]/).filter(Boolean);
+    const getPart = (method: 'getFullYear' | 'getMonth' | 'getDate' | 'getHours' | 'getMinutes' | 'getSeconds', offset = 0) => {
+        const val = d.toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong', [method === 'getMonth' ? 'month' : method === 'getDate' ? 'day' : method === 'getHours' ? 'hour' : method === 'getMinutes' ? 'minute' : method === 'getSeconds' ? 'second' : 'year']: 'numeric' });
+        return pad(method === 'getMonth' ? parseInt(getPartStr('getMonth')) + 1 : parseInt(getPartStr(method)));
+    };
+    const getPartStr = (method: string) => {
+        const str = d.toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong', 
+            [method === 'getMonth' ? 'month' : method === 'getDate' ? 'day' : method === 'getHours' ? 'hour' : method === 'getMinutes' ? 'minute' : method === 'getSeconds' ? 'second' : 'year']: 'numeric' });
+        return str;
+    };
+    const year = d.toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong', year: 'numeric' });
+    const month = pad(parseInt(d.toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong', month: 'numeric' })));
+    const day = pad(parseInt(d.toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong', day: 'numeric' })));
+    const hour = pad(parseInt(d.toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong', hour: 'numeric', hour12: false })));
+    const minute = pad(parseInt(d.toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong', minute: 'numeric' })));
+    const second = pad(parseInt(d.toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong', second: 'numeric' })));
     return `${year}-${month}-${day}T${hour}:${minute}:${second}.000+08:00`;
 };
 
@@ -118,16 +131,19 @@ const rssParser = new Parser({
 
 const article_systemPrompt = `
 Role: 你係一個專業既香港新聞編輯
-Task: 根據標題、內容同埋發佈日期，提供一篇新聞既簡潔摘要
+Task: 根據標題、內容，提供一篇新聞既簡潔摘要
 
-Formatting Rules:
-    - 提供 "SUMMARY:" 跟住2-3句既段落總結
-    - 使用客觀、中立既語氣
-    - 保持關鍵資訊（名稱、日期、數字）完整
-    - 只可以用JSON格式回覆：
-    {
-    "summary": "你既摘要段落"
-    }
+重要規則（必須嚴格遵守）：
+    - 必須用香港風格既繁體中文回覆，唔好用英文
+    - 絕對唔可以包含任何英文詞彙（除非係專有名詞或組織名稱）
+    - 只可以輸出JSON格式，絕對唔可以輸出HTML、markdown或其他格式
+    - 2-3句段落總結，開頭唔洗加 "SUMMARY:"
+    - 保持客觀、中立既語氣
+
+JSON格式：
+{
+"summary": "你既摘要段落"
+}
 `
 
 const overallSummarySystemprompt = `
@@ -221,7 +237,7 @@ cron.schedule('0 1 * * *', async () => {
 
 // // JOB 2: Daily Email Digest (Runs every day at 8:00 AM)
 cron.schedule('0 8 * * *', async () => {
-    console.log("📧 Generating and sending daily email...");
+    console.log(toISOStringHK()+" Generating and sending daily email...");
     await generateDailyDigest();
 });
 
@@ -550,15 +566,25 @@ const getSummary = async (title: string, cleanContent: string): Promise<string |
             timeout: 60000
         });
 
-        const rawContent = response.data.message?.content;
-        const jsonMatch = rawContent?.match(/\{[\s\S]*\}/);
+        const rawContent = response.data.message?.content || '';
+        const cleanedContent = rawContent
+            .replace(/```html\s*/gi, '')
+            .replace(/```\s*$/gm, '')
+            .trim();
+        
+        const jsonMatch = cleanedContent.match(/\{[\s\S]*\}/);
         
         if (jsonMatch) {
-            const parsed = JSON.parse(jsonMatch[0]);
-            return parsed.summary || null;
+            try {
+                const parsed = JSON.parse(jsonMatch[0]);
+                return parsed.summary || null;
+            } catch (e) {
+                console.error("JSON parse error:", e);
+                return cleanedContent.replace(/\{[\s\S]*\}/, '').trim() || null;
+            }
         }
         
-        return rawContent || null;
+        return cleanedContent || null;
     } catch (err) {
         console.error("Failed to get summary:", err);
         return null;
