@@ -184,72 +184,128 @@ cron.schedule('0 */4 * * *', async () => {
     }));
 });
 
+cron.schedule('0 1 * * *', async () => {
+    console.log(`${new Date().toISOString()} Starting database maintenance...`);
+    await deleteOldArticles();
+});
+
+
 // JOB 2: Daily Email Digest (Runs every day at 8:00 AM)
-// cron.schedule('0 8 * * *', async () => {
-//     console.log("📧 Generating and sending daily email...");
-//     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-//     let htmlEmail = ''
-//     try {
+cron.schedule('0 8 * * *', async () => {
+   console.log("📧 Generating and sending daily email...");
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    let htmlEmail = ''
+    try {
 
-//         const latestArticles = await prisma.article.findMany({
-//             where: {
-//                 publishAt: {
-//                     gte: oneDayAgo,
-//                 },
-//             },
-//             select: {
-//                 title: true,
-//                 url: true,
-//                 summary: true,
-//                 topic: true,
-//             },
-//             orderBy: {
-//                 topic: 'asc',
-//             },
-//         });
-//         const topicSummaryMap = new Map()
-//         let curatedContent = ''
-//         let summaryText = ''
-//         latestArticles.map(at => {
-//             curatedContent = `Title: ${at.title}\nURL: ${at.url}\nSummary: ${at.summary}\n---\n`
-//             if (topicSummaryMap.has(at)) {
-//                 summaryText = topicSummaryMap.get(at.topic)
-//                 topicSummaryMap.set(at.topic, summaryText + curatedContent)
-//             } else {
-//                 topicSummaryMap.set(at.topic, summaryText + curatedContent)
-//             }
-//         })
+        const latestArticles = await prisma.article.findMany({
+            where: {
+                publishAt: {
+                    gte: oneDayAgo,
+                },
+            },
+            select: {
+                title: true,
+                url: true,
+                summary: true,
+                topic: true,
+            },
+            orderBy: {
+                topic: 'asc',
+            },
+        });
 
-//         for (const topicKey of topicSummaryMap.keys()) {
-//             htmlEmail += `<h1>${topicKey}</h1>`
-//             const respon = await axios.post("http://localhost:11434/api/chat", {
-//                 "model": "gemma3:4b",
-//                 "messages": [
-//                     { "role": "system", "content": overallSummarySystemprompt },
-//                     {
-//                         "role": "user", "content":
-//                             // `### Task: Generate a unified digest.
-//                             // \n\n### Article Data:\n${topicSummaryMap.get(topicKey)}\n\n--- ...`
-//                             `Please create today's news digest from the following articles.
+        const topicSummaryMap = new Map()
+        let curatedContent = ''
+        let summaryText = ''
+        latestArticles.map(at => {
+            curatedContent = `Title: ${at.title}\nURL: ${at.url}\nSummary: ${at.summary}\n---\n`
+            if (topicSummaryMap.has(at)) {
+                summaryText = topicSummaryMap.get(at.topic)
+                topicSummaryMap.set(at.topic, summaryText + curatedContent)
+            } else {
+                topicSummaryMap.set(at.topic, curatedContent)
+            }
+        })
 
-//                         Articles:
-//                         ${topicSummaryMap.get(topicKey)}
-// `
-//                     }
-//                 ],
-//                 "stream": false
-//             }, {
-//                 timeout: 60000 // 60 second timeout for LLM
-//             })
-//             htmlEmail += respon.data.message?.content
-//         }
-//         console.log('FULL HTML:')
-//         console.log(htmlEmail)
-//     } catch (err) {
-//         console.error('err: ', err)
-//     }
+        const topicSummaryHtml = new Map();
+        for (const topicKey of topicSummaryMap.keys()) {
+            try {
+                htmlEmail = `<h2>Topic: ${topicKey}</h2>`
+                const respon = await axios.post("http://localhost:11434/api/chat", {
+                    "model": "gemma3:12b",
+                    "messages": [
+                        { "role": "system", "content": overallSummarySystemprompt },
+                        {
+                            "role": "user", "content": `### Task: Generate a unified digest.
+                        \n\n### Article Data:\n${topicSummaryMap.get(topicKey)}\n\n--- ...`
+                        }
+                    ],
+                    "stream": false
+                }, {
+                    timeout: 60000 // 60 second timeout for LLM
+                })
+                htmlEmail += respon.data.message?.content
+                htmlEmail += `<hr />`
+                console.log('FULL HTML: ')
+                console.log(htmlEmail)
+                topicSummaryHtml.set(topicKey, htmlEmail)
+            } catch (err) {
+                console.log('error during summary from ollama')
+            }
+        }
 
-// });
+        const activeSubscribers = await prisma.subscriber.findMany({
+            where: { isUnsub: false },
+            select: { email: true, topics: true }
+        });
+
+        // const sentFrom = new Sender("Martin@test-3m5jgroex7xgdpyo.mlsender.net", "Martin");
+        for (const user of activeSubscribers) {
+            // 1. Fetch news for user.topic
+
+            // const recipients = [
+            //     new Recipient("user.email", "Dear Subscriber")
+            // ];
+
+            htmlEmail = '<h1>Daily AI summary</h1>'
+            for (const selectedTopic of user.topics) {
+                htmlEmail += topicSummaryHtml.get(selectedTopic)
+            }
+
+            // const emailParams = new EmailParams()
+            //     .setFrom(sentFrom)
+            //     .setTo(recipients)
+            //     .setReplyTo(sentFrom)
+            //     .setSubject("This is a Subject")
+            //     .setHtml(htmlEmail)
+            //     .setText("This is the text content");
+
+            // await mailerSend.email.send(emailParams);
+        }
+
+
+
+
+        // const { data, error } = await resend.emails.send({
+        //     from: 'Acme <onboarding@resend.dev>',
+        //     to: ['martin2455voc@proton.me'], // This MUST be this specific email
+        //     subject: 'News Update',
+        //     html: htmlEmail,
+        // });
+
+        // if (error) {
+        //     return console.error({ error });
+        // }
+
+        // console.log({ data });
+
+    } catch (err) {
+        console.error('err: ', err)
+    } finally {
+        process.exit(0);
+    }
+
+});
 
 router.post("/subEmail", async (req, res) => {
     try {
@@ -418,109 +474,33 @@ const getSummary = async (title: string, cleanContent: string) => {
 }
 
 
-export default router;
-// test scrap
-(async () => {
-    // console.log("🚀 Starting manual test run...");
-    // await scrapeNewsFromRSS("https://rthk.hk/rthk/news/rss/c_expressnews_clocal.xml", "rthk", "Hong Kong");
-    // console.log("✅ Test run complete.");
-    // process.exit(0);
+const deleteOldArticles = async () => {
+    const threshold = new Date();
+    threshold.setDate(threshold.getDate() - 7);
 
-    console.log("📧 Generating and sending daily email...");
-    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    let htmlEmail = ''
     try {
-
-        const latestArticles = await prisma.article.findMany({
+        const deleted = await prisma.article.deleteMany({
             where: {
                 publishAt: {
-                    gte: oneDayAgo,
+                    lt: threshold, // "lt" means Less Than
                 },
             },
-            select: {
-                title: true,
-                url: true,
-                summary: true,
-                topic: true,
-            },
-            orderBy: {
-                topic: 'asc',
-            },
         });
-
-        const topicSummaryMap = new Map()
-        let curatedContent = ''
-        let summaryText = ''
-        latestArticles.map(at => {
-            curatedContent = `Title: ${at.title}\nURL: ${at.url}\nSummary: ${at.summary}\n---\n`
-            if (topicSummaryMap.has(at)) {
-                summaryText = topicSummaryMap.get(at.topic)
-                topicSummaryMap.set(at.topic, summaryText + curatedContent)
-            } else {
-                topicSummaryMap.set(at.topic, curatedContent)
-            }
-        })
-
-        htmlEmail += `<h1>Daily News Summarize</h1>`
-        for (const topicKey of topicSummaryMap.keys()) {
-            htmlEmail += `<h2>Topic: ${topicKey}</h2>`
-            const respon = await axios.post("http://localhost:11434/api/chat", {
-                "model": "gemma3:12b",
-                "messages": [
-                    { "role": "system", "content": overallSummarySystemprompt },
-                    {
-                        "role": "user", "content": `### Task: Generate a unified digest.
-                        \n\n### Article Data:\n${topicSummaryMap.get(topicKey)}\n\n--- ...`
-                    }
-                ],
-                "stream": false
-            }, {
-                timeout: 60000 // 60 second timeout for LLM
-            })
-            htmlEmail += respon.data.message?.content
-            htmlEmail += `<hr />`
-        }
-        console.log('FULL HTML: ')
-        console.log(htmlEmail)
-
-
-        // const sentFrom = new Sender("Martin@test-3m5jgroex7xgdpyo.mlsender.net", "Martin");
-
-        // const recipients = [
-        //     new Recipient("martin2455Voc@proton.me", "s Client")
-        // ];
-
-        // const emailParams = new EmailParams()
-        //     .setFrom(sentFrom)
-        //     .setTo(recipients)
-        //     .setReplyTo(sentFrom)
-        //     .setSubject("This is a Subject")
-        //     .setHtml(htmlEmail)
-        //     .setText("This is the text content");
-
-        // await mailerSend.email.send(emailParams);
-
-
-        // const { data, error } = await resend.emails.send({
-        //     from: 'Acme <onboarding@resend.dev>',
-        //     to: ['martin2455voc@proton.me'], // This MUST be this specific email
-        //     subject: 'News Update',
-        //     html: htmlEmail,
-        // });
-
-        // if (error) {
-        //     return console.error({ error });
-        // }
-
-        // console.log({ data });
-
-    } catch (err) {
-        console.error('err: ', err)
-    } finally {
-        process.exit(0);
+        console.log(`🧹 Cleaned up ${deleted.count} old articles.`);
+    } catch (error) {
+        console.error("Cleanup failed:", error);
     }
+};
 
-})();
+export default router;
+// test scrap
+// (async () => {
+//     console.log("🚀 Starting manual test run...");
+//     await scrapeNewsFromRSS("https://rthk.hk/rthk/news/rss/c_expressnews_clocal.xml", "rthk", "Hong Kong");
+//     console.log("✅ Test run complete.");
+//     process.exit(0);
+
+// })();
 
 // type workerMsg = { status: 'success' | 'error', vector?: number[], error?: string }
 // const __filename = fileURLToPath(import.meta.url);
