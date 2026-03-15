@@ -11,6 +11,16 @@ services:
     volumes:
       - ./server/db/init:/docker-entrypoint-initdb.d
       - postgres_data:/var/lib/postgresql/data      # <--- ADD THIS LINE
-
+  rsshub:
+      image: diygod/rsshub
+      restart: always
+      ports:
+        - "1200:1200"
+      environment:
+        NODE_ENV: production
+        CACHE_TYPE: redis
+        REDIS_URL: redis://redis:6379
+  redis:
+      image: redis:alpine
 volumes:
   postgres_data:

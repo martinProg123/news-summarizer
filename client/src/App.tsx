@@ -27,27 +27,31 @@ import { useState } from "react"
 export function App() {
   const selectedTopic = new Set<string>()
   const [userEmail, setUserEmail] = useState('')
-  const [duration, setDuration] = useState('')
+  const [duration, setDuration] = useState('24h')
+  const apiUrl = import.meta.env.VITE_API_URL;
+
   const sub2Email = async () => {
     try {
-      // if (!userEmail || !duration || selectedTopic.size === 0)
-        // throw new Error('Please enter full detail!')
+      console.log(userEmail, duration , selectedTopic.size)
+      if (!userEmail || !duration || selectedTopic.size === 0)
+        throw new Error('Please enter full detail!')
       const reqData = {
         topicArr: [...selectedTopic],
         userEmail,
-        duration,
+        duration: '24h',
       }
       console.log(reqData)
-      // const response = await fetch('http://api.example.com/data', {
-      //   method: 'POST', // Specify the method
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //   },
-      //   body: JSON.stringify(reqData),
-      // });
+      const response = await fetch(apiUrl+'/subEmail', {
+        method: 'POST', // Specify the method
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(reqData),
+      });
 
-      // if (!response.ok)
-        // throw new Error(`HTTP error! status: ${response.status}`)
+      console.log(response)
+      if (!response.ok)
+        throw new Error(`HTTP error! status: ${response.status}`)
 
       toast.success("Thanks for subscribing!"
         , { position: "top-center" }
@@ -59,19 +63,37 @@ export function App() {
       )
     }
   }
+  
   const unsub = async () => {
+    try {
 
-    toast.success("You have been unsubscribed!"
-      , { position: "top-center" }
-    )
+      const response = await fetch(apiUrl+'/unsub', {
+        method: 'POST', // Specify the method
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({userEmail}),
+      });
+
+      if (!response.ok)
+        throw new Error(`Try again later! `)
+      toast.success("You have been unsubscribed!"
+        , { position: "top-center" }
+      )
+    } catch (error) {
+      console.error('Error:', error);
+      toast.error(" " + error
+        , { position: "top-center" }
+      )
+    }
   }
 
   return (
     <div className="flex flex-col min-h-svh p-6 gap-6">
       <header>
         <nav className="flex gap-4 font-semibold">
-          <a href="#"><House /></a>
-          <a href="#">Modify</a>
+          {/* <a href="#"><House /></a> */}
+          {/* <a href="#">Modify</a> */}
         </nav>
       </header>
       <main>
@@ -80,7 +102,7 @@ export function App() {
           <h1 className="mx-[1rem] leading-tighter text-3xl font-semibold tracking-tight text-balance text-primary lg:leading-[1.1] lg:font-semibold xl:text-5xl xl:tracking-tighter max-w-4xl">
             Your Daily News,
           </h1>
-          <h2 className="mt-2">curated by AI</h2>
+          <h2 className="mt-2 text-xl">curated by AI</h2>
         </div>
 
         <div className="w-full lg:max-w-4/6 mx-auto">
@@ -98,7 +120,7 @@ export function App() {
                     type="email"
                     placeholder="m@example.com"
                     required
-                    onChange={(el)=>setUserEmail(el.target.value)}
+                    onChange={(el) => setUserEmail(el.target.value)}
                     value={userEmail}
                   />
                 </div>
@@ -126,13 +148,13 @@ export function App() {
 
                   </div>
                 </div>
-                <div className="grid gap-4">
+                {/* <div className="grid gap-4">
                   <Label >How often do you want to receive email?</Label>
-                  <Select 
-                  value={duration}
-                  onValueChange={(val)=>
-                    setDuration(val)
-                  }>
+                  <Select
+                    value={duration}
+                    onValueChange={(val) =>
+                      setDuration(val)
+                    }>
                     <SelectTrigger className="w-[180px]">
                       <SelectValue placeholder="How Often?" />
                     </SelectTrigger>
@@ -143,7 +165,7 @@ export function App() {
                       </SelectGroup>
                     </SelectContent>
                   </Select>
-                </div>
+                </div> */}
 
               </div>
             </CardContent>
