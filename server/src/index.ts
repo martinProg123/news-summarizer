@@ -124,7 +124,6 @@ Rules you must strictly follow:
 4. Style guidelines:
    - Use very simple inline CSS only (no external stylesheets)
    - Keep it readable on mobile and dark/light mode
-   - Font stack: system-ui, -apple-system, BlinkMacOSystemFont, 'Segoe UI', Roboto, sans-serif
    - Links: blue (#0066cc), underline on hover
    - Main text color: #222 (dark mode friendly)
 
@@ -138,12 +137,12 @@ Rules you must strictly follow:
    - Overall digest should feel like 3–7 minutes reading time
    - Be concise — remove redundancy
 
-Output **only** the HTML content — no explanation, no markdown.
+Output **only** the HTML content — no explanation, no markdown., no html fences, nothing else.
 `
 
 
 
-cron.schedule('0 */4 * * *', async () => {
+cron.schedule('0 */6 * * *', async () => {
     // cron.schedule('* * * * *', async () => {
     console.log(new Date().toISOString() + ' cron scrap...');
 
@@ -190,9 +189,9 @@ cron.schedule('0 1 * * *', async () => {
 });
 
 
-// JOB 2: Daily Email Digest (Runs every day at 8:00 AM)
+// // JOB 2: Daily Email Digest (Runs every day at 8:00 AM)
 cron.schedule('0 8 * * *', async () => {
-   console.log("📧 Generating and sending daily email...");
+    console.log("📧 Generating and sending daily email...");
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
     let htmlEmail = ''
     try {
@@ -322,7 +321,10 @@ router.post("/subEmail", async (req, res) => {
 
         const result = await prisma.subscriber.upsert({
             where: { email: userEmail }, // The unique field
-            update: {}, // Do nothing if it exists
+            update: {
+                isUnsub: false,
+                topics: topicArr,
+            }, // Do nothing if it exists
             create: {
                 email: userEmail,
                 topics: topicArr,
@@ -383,7 +385,7 @@ const scrapeNewsFromRSS = async (feedsUrl: string, site: string, topic: string) 
 
             if (existing) continue
 
-            await randomWait(3000, 7000)
+            await randomWait(5000, 20000)
             // 2. Fetch the raw HTML of the article
             const { data: html } = await axios.get(item.link
                 , {
@@ -496,13 +498,171 @@ const deleteOldArticles = async () => {
 
 export default router;
 // test scrap
-// (async () => {
-//     console.log("🚀 Starting manual test run...");
-//     await scrapeNewsFromRSS("https://rthk.hk/rthk/news/rss/c_expressnews_clocal.xml", "rthk", "Hong Kong");
-//     console.log("✅ Test run complete.");
-//     process.exit(0);
+(async () => {
+    // //     console.log("🚀 Starting manual test run...");
+    // //     await scrapeNewsFromRSS("https://rthk.hk/rthk/news/rss/c_expressnews_clocal.xml", "rthk", "Hong Kong");
+    // //     console.log("✅ Test run complete.");
+    // //     process.exit(0);
 
-// })();
+    console.log(new Date().toISOString() + " 📧 Generating and sending daily email...");
+    const oneDayAgo = new Date(Date.now() - (24) * 60 * 60 * 1000);
+    let htmlEmail = ''
+    try {
+
+        const latestArticles = await prisma.article.findMany({
+            where: {
+                publishAt: {
+                    gte: oneDayAgo,
+                },
+            },
+            select: {
+                title: true,
+                url: true,
+                summary: true,
+                topic: true,
+            },
+            orderBy: {
+                topic: 'asc',
+            },
+        });
+
+        const topicSummaryMap = new Map()
+        for (const article of latestArticles) {
+            const content = `Title: ${article.title}\nURL: ${article.url}\nSummary: ${article.summary}\n---\n`;
+            const existing = topicSummaryMap.get(article.topic) || "";
+            topicSummaryMap.set(article.topic, existing + content);
+        }
+
+
+        console.log(new Date().toISOString() + " start summary ");
+        // const topicSummaryHtml = new Map()
+        // const topicKeys = Array.from(topicSummaryMap.keys());
+        // for (const topicKey of topicKeys) {
+
+        //     console.log(new Date().toISOString() + " summarize " + topicKey);
+        //     try {
+        //         const response = await axios.post("http://localhost:11434/api/chat", {
+        //             model: "gemma3:4b",
+        //             messages: [
+        //                 { role: "system", content: overallSummarySystemprompt },
+        //                 { role: "user", content: `Task: Digest for ${topicKey}\n${topicSummaryMap.get(topicKey)}` }
+        //             ],
+        //             stream: false,
+        //             temperature: 0.1,
+        //         }, { timeout: 1000 * 60 * 7 });
+
+        //         const summary = response.data.message?.content || "Summary unavailable.";
+        //         // Corrected HTML concatenation
+        //         const html = `<h2>Topic: ${topicKey}</h2>
+        //               <h3>Overall summary: </h3>
+        //               <p>${summary}</p>
+        //               <hr />
+        //               ${topicSummaryMap.get(topicKey).replace(/\n/g, '<br>')}`;
+        //         topicSummaryHtml.set(topicKey, html);
+        //     } catch (err: any) {
+        //         console.error(`Error summarizing ${topicKey}:`, err.message);
+        //         topicSummaryHtml.set(topicKey, `<h2>${topicKey}</h2><p>Summary Timeout</p>`);
+        //     }
+        // }
+
+        // console.log(new Date().toISOString() + " end summary ");
+
+        console.log(`${new Date().toISOString()} start parallel summary`);
+
+        // 2. Prepare all LLM requests as an array of Promises
+        const topicKeys = Array.from(topicSummaryMap.keys());
+        const summaryPromises = topicKeys.map(async (topicKey) => {
+            console.log(`${new Date().toISOString()} request queued: ${topicKey}`);
+
+            try {
+                const response = await axios.post("http://localhost:11434/api/chat", {
+                    model: "gemma3:4b",
+                    messages: [
+                        { role: "system", content: overallSummarySystemprompt },
+                        { role: "user", content: `Task: Digest for ${topicKey}\n${topicSummaryMap.get(topicKey)}` }
+                    ],
+                    stream: false,
+                    temperature: 0.1,
+                }, { timeout: 1000 * 60 * 7 });
+
+                const summary = response.data.message?.content || "Summary unavailable.";
+                const html = `
+                <h2>Topic: ${topicKey}</h2>
+                <h3>Overall summary:</h3>
+                <p>${summary}</p>
+                <hr />
+                ${topicSummaryMap.get(topicKey)!.replace(/\n/g, '<br>')}`;
+
+                return { topicKey, html };
+            } catch (err: any) {
+                console.error(`Error summarizing ${topicKey}:`, err.message);
+                return { topicKey, html: `<h2>${topicKey}</h2><p>Summary Timeout or Error</p>` };
+            }
+        });
+
+        // 3. Execute all requests in parallel and wait for the result
+        const summaryResults = await Promise.all(summaryPromises);
+
+        // 4. Convert results back into a Map for easy lookup
+        const topicSummaryHtml = new Map(summaryResults.map(res => [res.topicKey, res.html]));
+
+        console.log(`${new Date().toISOString()} end parallel summary`);
+
+        const activeSubscribers = await prisma.subscriber.findMany({
+            where: { isUnsub: false },
+            select: { email: true, topics: true }
+        });
+
+        // const sentFrom = new Sender("Martin@test-3m5jgroex7xgdpyo.mlsender.net", "Martin");
+        for (const user of activeSubscribers) {
+            // 1. Fetch news for user.topic
+
+            // const recipients = [
+            //     new Recipient("user.email", "Dear Subscriber")
+            // ];
+
+            htmlEmail = '<h1>Daily AI summary</h1>'
+            for (const selectedTopic of user.topics) {
+                htmlEmail += topicSummaryHtml.get(selectedTopic)
+            }
+
+            // const emailParams = new EmailParams()
+            //     .setFrom(sentFrom)
+            //     .setTo(recipients)
+            //     .setReplyTo(sentFrom)
+            //     .setSubject("This is a Subject")
+            //     .setHtml(htmlEmail)
+            //     .setText("This is the text content");
+
+            // await mailerSend.email.send(emailParams);
+            console.log(`${user.email},  ${new Date().toISOString()},` + ' full Email: ')
+            console.log(htmlEmail)
+            break;
+        }
+
+
+
+
+        // const { data, error } = await resend.emails.send({
+        //     from: 'Acme <onboarding@resend.dev>',
+        //     to: ['martin2455voc@proton.me'], // This MUST be this specific email
+        //     subject: 'News Update',
+        //     html: htmlEmail,
+        // });
+
+        // if (error) {
+        //     return console.error({ error });
+        // }
+
+        // console.log({ data });
+
+    } catch (err) {
+        console.error('err: ', err)
+    } finally {
+        process.exit(0);
+    }
+
+})();
 
 // type workerMsg = { status: 'success' | 'error', vector?: number[], error?: string }
 // const __filename = fileURLToPath(import.meta.url);
