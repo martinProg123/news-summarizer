@@ -229,12 +229,15 @@ cron.schedule('0 */6 * * *', async () => {
             await scrapeNewsFromRSS(feed.url, obj.site, feed.topic);
         }
     }));
+
+    console.log(toISOStringHK() + ' scrap END...');
 });
 
 // del old article
 cron.schedule('0 1 * * *', async () => {
     console.log(`${toISOStringHK()} Starting database maintenance...`);
     await deleteOldArticles();
+    await deleteUnSub()
 });
 
 
@@ -325,17 +328,20 @@ async function generateDailyDigest() {
             .join('');
 
         try {
+            console.log(toISOStringHK() + " overall sum start");
             const response = await axios.post("http://localhost:11434/api/chat", {
                 "model": "gemma3:4b",
                 // "model": "gemma3:12b",
                 "messages": [
                     { "role": "system", "content": overallSummarySystemprompt },
                     {
-                        "role": "user", "content": `### Task: Generate a unified digest.\n\n### Article Data:\n${combinedContent}\n\n--- ...`
+                        "role": "user",
+                        "content": `### Task: Generate a unified digest.\n\n### Article Data:\n${combinedContent}\n\n--- ...`
                     }
                 ],
                 "stream": false
             }, { timeout: 120000 });
+            console.log(toISOStringHK() + " overall sum end");
 
             const overallSummary = (response.data.message?.content
                 .replace(/```html\s*/gi, '')
@@ -386,15 +392,38 @@ async function generateDailyDigest() {
         select: { email: true, topics: true }
     });
 
+    console.log(`${activeSubscribers.length} - activeSubscribers `);
+    const sentFrom = new Sender(process.env.MAILER_EMAIL as string, "Martin");
     for (const user of activeSubscribers) {
         let htmlEmail = '<h1>Daily AI summary</h1>';
+
+        const recipients = [
+            new Recipient(user.email, "Dear Subscriber")
+        ];
         for (const selectedTopic of user.topics) {
             htmlEmail += topicSummaryHtml.get(selectedTopic) || '';
         }
+        // console.log(`${user.email} - Email content generated: `);
+        // console.log(htmlEmail);
+        // console.log(`Email content generated ened`);
 
-        console.log(`${user.email} - Email content generated: `);
-        console.log(htmlEmail);
-        console.log(`Email content generated ened`);
+        try {
+
+            const emailParams = new EmailParams()
+                .setFrom(sentFrom)
+                .setTo(recipients)
+                .setReplyTo(sentFrom)
+                .setSubject("Daily News Summary")
+                .setHtml(htmlEmail)
+
+            const res = await mailerSend.email.send(emailParams);
+
+            console.log(`send email success`);
+            console.log(res);
+        } catch (err) {
+            console.log(`error in send email `);
+            console.log(JSON.stringify(err));
+        }
     }
 
     process.exit(0);
@@ -500,15 +529,15 @@ const scrapeNewsFromRSS = async (feedsUrl: string, site: string, topic: string) 
 
                 // get summary from ollama, and insert data
                 if (newsArticle && newsArticle.textContent) {
-                    console.log("Title:", newsArticle.title);
+                    // console.log("Title:", newsArticle.title);
                     const cleanContent = newsArticle.textContent.trim()
-                    console.log("Clean Content:", cleanContent);
+                    // console.log("Clean Content:", cleanContent);
 
                     let embedding = null;
                     try {
                         const textToEmbed = `${newsArticle.title || ""} ${cleanContent.slice(0, 2000)}`;
                         embedding = await generateEmbedding(textToEmbed);
-                        console.log("Embedding generated for:", newsArticle.title);
+                        // console.log("Embedding generated for:", newsArticle.title);
                     } catch (err) {
                         console.error("Failed to generate embedding:", err);
                     }
@@ -574,8 +603,8 @@ const getSummary = async (title: string, cleanContent: string): Promise<string |
             timeout: 60000
         });
 
-        const rawContent = response.data.message?.content || '';
-        return extractSummary(rawContent);
+        const rawContent = response.data.message?.content;
+        return rawContent ? extractSummary(rawContent) : null
     } catch (err) {
         console.error("Failed to get summary:", err);
         return null;
@@ -608,27 +637,6 @@ const extractSummary = (text: string): string | null => {
         return summaryMatch[1];
     }
 
-    // 3. Try to find any key with summary-like value (like "summary": "...")
-    const anySummaryMatch = cleaned.match(/"([^"]+)":\s*"([^"]{20,}?)"/);
-    if (anySummaryMatch && anySummaryMatch[2] && anySummaryMatch[2].length > 15) {
-        return anySummaryMatch[2];
-    }
-
-    // 4. If no JSON, try to extract first substantial paragraph (skip if it looks like prompt remnants)
-    if (!jsonMatch) {
-        const paragraphs = cleaned.split(/\n\n+/).filter(p => p.trim().length > 20);
-        for (const p of paragraphs) {
-            const trimmed = p.trim();
-            // Skip if looks like prompt/system message
-            if (trimmed.match(/^(Role:|Task:|Formatting|Instruction:|以下是)/i)) continue;
-            // Skip if too short or looks like garbled text
-            if (trimmed.length < 30 || trimmed.length > 1000) continue;
-            // Return first valid-looking paragraph
-            return trimmed;
-        }
-    }
-
-    // 5. Last resort: return cleaned text if substantial
     if (cleaned.length > 20 && cleaned.length < 2000) {
         return cleaned;
     }
@@ -655,11 +663,61 @@ const deleteOldArticles = async () => {
     }
 };
 
+const deleteUnSub = async () => {
+
+    try {
+        const deleted = await prisma.subscriber.deleteMany({
+            where: {
+                isUnsub: true,
+            },
+        });
+        console.log(`🧹 Cleaned up ${deleted.count} unsub.`);
+    } catch (error) {
+        console.error("Cleanup failed:", error);
+    }
+};
+
 
 // Manual test run
 (async () => {
-    console.log(toISOStringHK() + " 📧 Generating and sending daily email...");
-    await generateDailyDigest();
+    console.log(toISOStringHK() + " test");
+    console.log(toISOStringHK() + ' cron scrap...');
+
+    const source = [
+        {
+            site: "rthk",
+            feeds: [
+                { url: "https://rthk.hk/rthk/news/rss/c_expressnews_clocal.xml", topic: "Hong Kong" },
+                { url: "https://rthk.hk/rthk/news/rss/c_expressnews_cinternational.xml", topic: "World" },
+                { url: "https://rthk.hk/rthk/news/rss/c_expressnews_cfinance.xml", topic: "Business" },
+                { url: "https://rthk.hk/rthk/news/rss/c_expressnews_csport.xml", topic: "Sport" }
+            ]
+        },
+        {
+            site: "yahoo",
+            feeds: [
+                { url: "http://localhost:1200/yahoo/news/hk/hong-kong", topic: "Hong Kong" },
+                { url: "http://localhost:1200/yahoo/news/hk/business", topic: "Business" },
+                { url: "http://localhost:1200/yahoo/news/hk/sports", topic: "Sport" }
+            ]
+        },
+        {
+            site: "hk01",
+            feeds: [
+                { url: "http://localhost:1200/hk01/latest", topic: "Hong Kong" },
+                { url: "http://localhost:1200/hk01/channel/4", topic: "Business" },
+                { url: "http://localhost:1200/hk01/zone/4", topic: "World" },
+                { url: "http://localhost:1200/hk01/zone/3", topic: "Sport" },
+                // { url: "http://localhost:1200/hk01/zone/3", topic: "Sport" }
+            ]
+        }
+    ];
+
+    await Promise.all(source.map(async (obj) => {
+        for (const feed of obj.feeds) {
+            await scrapeNewsFromRSS(feed.url, obj.site, feed.topic);
+        }
+    }));
 })();
 
 export default router;
