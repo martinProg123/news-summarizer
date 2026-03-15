@@ -6,7 +6,7 @@ let pipe = null;
 // Lazy-load the model to save memory until needed
 async function getExtractor() {
   if (!pipe) {
-    pipe = await pipeline('feature-extraction', 'Qwen/Qwen3-Embedding-0.6B');
+    pipe = await pipeline('feature-extraction', 'BAAI/bge-small-en-v1.5');
   }
   return pipe;
 }

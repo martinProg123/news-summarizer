@@ -576,10 +576,10 @@ export default router;
 })();
 
 // Manual test run
-(async () => {
-    console.log(new Date().toISOString() + " 📧 Generating and sending daily email...");
-    await generateDailyDigest();
-})();
+// (async () => {
+//     console.log(new Date().toISOString() + " 📧 Generating and sending daily email...");
+//     await generateDailyDigest();
+// })();
 
 type workerMsg = { status: 'success' | 'error', vector?: number[], error?: string }
 const __filename = fileURLToPath(import.meta.url);

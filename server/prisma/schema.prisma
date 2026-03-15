@@ -24,8 +24,8 @@ model Article {
   publishAt   DateTime @default(now()) @map("publish_at")
   metadata    Json?
   
-  // 1024 dimensions for your Qwen model
-  embedding   Unsupported("vector(1024)")?
+  // 384 dimensions for bge-small-en-v1.5 model
+  embedding   Unsupported("vector(384)")?
   topic       String
 
   @@map("article")
