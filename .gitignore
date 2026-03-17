@@ -31,8 +31,11 @@ Thumbs.db
 
 .vite/
 scratch.txt
+access_token.txt
 
 # transformer
 .cache/
 models/
 onnx/
+
+AGENTS.md

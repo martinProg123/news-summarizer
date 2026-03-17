@@ -38,6 +38,10 @@ router.post("/unsub", async (req, res) => {
     try {
         const { userEmail } = req.body;
 
+        const emailCheck = emailSchema.safeParse(userEmail);
+        if (!emailCheck.success)
+            res.status(400).json({ error: emailCheck.error.message });
+        
         const deleteUser = await prisma.subscriber.update({
             where: { email: userEmail },
             data: {

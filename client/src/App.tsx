@@ -23,25 +23,36 @@ import { Circle, House, CircleCheck } from "lucide-react"
 import { toast } from "sonner"
 import { topics } from "@shared/constant"
 import { useState } from "react"
+import { z } from 'zod';
 
 export function App() {
-  const selectedTopic = new Set<string>()
+  const [selectedTopic, setSelectedTopic] = useState<Set<string>>(new Set())
   const [userEmail, setUserEmail] = useState('')
   const [duration, setDuration] = useState('24h')
   const apiUrl = import.meta.env.VITE_API_URL;
+  const emailSchema = z.email("Invalid email format");
+  const subSchema = z.object({
+    userEmail: emailSchema,
+    topicArr: z.array(z.string()).min(1, { message: "At least 1 topic" }),
+    duration: z.enum(["24h"])
+  })
 
   const sub2Email = async () => {
     try {
-      console.log(userEmail, duration , selectedTopic.size)
-      if (!userEmail || !duration || selectedTopic.size === 0)
-        throw new Error('Please enter full detail!')
       const reqData = {
         topicArr: [...selectedTopic],
         userEmail,
         duration: '24h',
       }
       console.log(reqData)
-      const response = await fetch(apiUrl+'/subEmail', {
+      const subCheck = subSchema.safeParse(reqData);
+      if (!subCheck.success)
+        throw new Error(subCheck.error?.message)
+      // if (!userEmail || !duration || selectedTopic.size === 0)
+      //   throw new Error('Please enter full detail!')
+
+      console.log(reqData)
+      const response = await fetch(apiUrl + '/subEmail', {
         method: 'POST', // Specify the method
         headers: {
           'Content-Type': 'application/json',
@@ -53,6 +64,8 @@ export function App() {
       if (!response.ok)
         throw new Error(`HTTP error! status: ${response.status}`)
 
+      setSelectedTopic(new Set())
+      setUserEmail('')
       toast.success("Thanks for subscribing!"
         , { position: "top-center" }
       )
@@ -63,16 +76,19 @@ export function App() {
       )
     }
   }
-  
+
   const unsub = async () => {
     try {
+      const emailCheck = emailSchema.safeParse(userEmail);
+      if (!emailCheck.success)
+        throw new Error(`Invalid Email`)
 
-      const response = await fetch(apiUrl+'/unsub', {
+      const response = await fetch(apiUrl + '/unsub', {
         method: 'POST', // Specify the method
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({userEmail}),
+        body: JSON.stringify({ userEmail }),
       });
 
       if (!response.ok)
@@ -98,15 +114,20 @@ export function App() {
       </header>
       <main>
         {/* hero */}
-        <div className=" font-mono text-center pt-16 pb-12">
-          <h1 className="mx-[1rem] leading-tighter text-3xl font-semibold tracking-tight text-balance text-primary lg:leading-[1.1] lg:font-semibold xl:text-5xl xl:tracking-tighter max-w-4xl">
+        <div className="flex flex-col  items-center font-mono text-center pt-16 pb-12">
+          <h1 className="mx-[4rem] leading-tighter text-3xl font-semibold tracking-tight text-balance text-primary lg:leading-[1.1] lg:font-semibold xl:text-5xl xl:tracking-tighter max-w-4xl">
             Your Daily News,
           </h1>
-          <h2 className="mt-2 text-xl">curated by AI</h2>
+          <h2 className="mt-2 translate-x-0 md:translate-x-56 text-xl">
+            curated by
+            <i className="ml-1">
+              AI
+            </i>
+          </h2>
         </div>
 
-        <div className="w-full lg:max-w-4/6 mx-auto">
-          <Card>
+        <div className="w-full lg:max-w-xl mx-auto ">
+          <Card className="text-lg">
             <CardHeader>
               <CardTitle>Subscribe to AI curated news</CardTitle>
               <CardDescription>Get Email everyday on selected AI summary news</CardDescription>
@@ -132,10 +153,10 @@ export function App() {
                         return (
                           <Toggle variant="outline" aria-label="Toggle italic"
                             onPressedChange={(pressed) => {
-                              if (pressed)
-                                selectedTopic.add(t)
-                              else
-                                selectedTopic.delete(t)
+                              const newSet = new Set(selectedTopic)
+                              if (pressed) newSet.add(t)
+                              else newSet.delete(t)
+                              setSelectedTopic(newSet)
                             }}
                           >
                             <Circle className="group-data-[state=on]/toggle:hidden block" />
