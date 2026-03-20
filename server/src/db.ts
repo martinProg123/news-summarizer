@@ -1,22 +1,29 @@
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "../prisma/generated/client/index.js"; // Point to your custom path
+import { PrismaClient } from "../prisma/generated/client/index.js";
 import { Pool } from 'pg';
 import dotenv from 'dotenv';
 
 dotenv.config();
-// To prevent multiple instances of Prisma Client in development 
-// (which can exhaust your database connection pool)
-// const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
-// export const prisma =
-//   globalForPrisma.prisma ||
-//   new PrismaClient({
-//     log: ["query", "error", "warn"], // Useful for debugging your vector searches
-//   });
+const globalForPrisma = global as unknown as { prisma: PrismaClient; pool: Pool };
 
-// if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-const adapter = new PrismaPg(pool as any);
+function createPrismaClient() {
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const adapter = new PrismaPg(pool as any);
+  return { prisma: new PrismaClient({ adapter }), pool };
+}
 
-export const prisma = new PrismaClient({ adapter });
+if (!globalForPrisma.prisma) {
+  const { prisma, pool } = createPrismaClient();
+  globalForPrisma.prisma = prisma;
+  globalForPrisma.pool = pool;
+}
+
+export const prisma = globalForPrisma.prisma;
+const pool = globalForPrisma.pool;
+
+export async function prismaDisconnect() {
+  await prisma.$disconnect();
+  await pool.end();
+}
