@@ -39,3 +39,4 @@ models/
 onnx/
 
 AGENTS.md
+.continue/

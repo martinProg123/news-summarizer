@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button"
 import {
   Card,
-  CardAction,
+  // CardAction,
   CardContent,
   CardDescription,
   CardFooter,
@@ -10,14 +10,14 @@ import {
 } from "@/components/ui/card"
 import { Input } from "./components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+// import {
+//   Select,
+//   SelectContent,
+//   SelectGroup,
+//   SelectItem,
+//   SelectTrigger,
+//   SelectValue,
+// } from "@/components/ui/select"
 import { Toggle } from "@/components/ui/toggle"
 import { Circle, House, CircleCheck } from "lucide-react"
 import { toast } from "sonner"
@@ -42,12 +42,12 @@ export function App() {
       const reqData = {
         topicArr: [...selectedTopic],
         userEmail,
-        duration: '24h',
+        duration: '24h', 
       }
       console.log(reqData)
       const subCheck = subSchema.safeParse(reqData);
       if (!subCheck.success)
-        throw new Error(subCheck.error?.message)
+        throw new Error(subCheck.error.issues[0]?.message)
       // if (!userEmail || !duration || selectedTopic.size === 0)
       //   throw new Error('Please enter full detail!')
 
@@ -98,7 +98,7 @@ export function App() {
       )
     } catch (error) {
       console.error('Error:', error);
-      toast.error(" " + error
+      toast.error("Try Again"
         , { position: "top-center" }
       )
     }

@@ -186,5 +186,5 @@ export const generateDailyDigest = async () => {
         }
     }
 
-    process.exit(0);
+    // process.exit(0);
 };
