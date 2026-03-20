@@ -35,3 +35,13 @@ export function generateEmbedding(text: string): Promise<number[]> {
         worker.on('error', onError);
     });
 }
+
+export function terminateWorker(): Promise<number> {
+    return new Promise((resolve) => {
+        const timeout = setTimeout(() => resolve(worker.terminate()), 500);
+        worker.terminate().then(() => {
+            clearTimeout(timeout);
+            resolve(0);
+        });
+    })
+}
