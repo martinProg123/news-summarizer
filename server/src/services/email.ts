@@ -43,7 +43,7 @@ export const generateDailyDigest = async () => {
             const embeddingStr = `[${topicEmbedding.join(',')}]`;
 
             const rawArticles = await prisma.$queryRaw<any[]>`
-                SELECT id, title, url, content, embedding, "publish_at"
+                SELECT id, title, url, content, embedding, "publish_at" as "publishAt"
                 FROM article
                 WHERE "publish_at" >= ${oneDayAgo}
                   AND topic = ${topic}
@@ -55,7 +55,7 @@ export const generateDailyDigest = async () => {
 
             if (articles.length < 10) {
                 const fallbackArticles = await prisma.$queryRaw<any[]>`
-                    SELECT id, title, url, content, embedding, "publish_at"
+                    SELECT id, title, url, content, embedding, "publish_at" as "publishAt"
                     FROM article
                     WHERE "publish_at" >= ${oneDayAgo}
                       AND topic = ${topic}
@@ -69,7 +69,7 @@ export const generateDailyDigest = async () => {
         } catch (err) {
             console.error(`Vector search failed for ${topic}, using fallback:`, err);
             articles = await prisma.$queryRaw<any[]>`
-                SELECT id, title, url, content, embedding, "publish_at"
+                SELECT id, title, url, content, embedding, "publish_at" as "publishAt"
                 FROM article
                 WHERE "publish_at" >= ${oneDayAgo}
                   AND topic = ${topic}

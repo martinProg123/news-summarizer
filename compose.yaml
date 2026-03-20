@@ -8,6 +8,7 @@ services:
       POSTGRES_USER: news_admin
       POSTGRES_PASSWORD: news_adminPW
       POSTGRES_DB: news_db
+      TZ: Asia/Hong_Kong
     volumes:
       - ./server/db/init:/docker-entrypoint-initdb.d
       - postgres_data:/var/lib/postgresql/data   
