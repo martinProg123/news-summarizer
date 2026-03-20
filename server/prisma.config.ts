@@ -13,12 +13,9 @@ export default defineConfig({
   migrations: {
     path: "prisma/migrations",
   },
-  // datasource: {
-  //   url: process.env["DATABASE_URL"]|| "postgresql://news_admin:news_adminPW@localhost:4646/news_db?schema=public",
-  // },
-  earlyAccess: true, // Required for some Prisma 7 features
+  // earlyAccess: true, // Required for some Prisma 7 features
   datasource: {
-    adapter: adapter,
+    // adapter: adapter,
     url: process.env["DATABASE_URL"]|| "postgresql://news_admin:news_adminPW@localhost:4646/news_db?schema=public",
   },
 });

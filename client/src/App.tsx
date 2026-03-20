@@ -42,7 +42,7 @@ export function App() {
       const reqData = {
         topicArr: [...selectedTopic],
         userEmail,
-        duration: '24h', 
+        duration: '24h',
       }
       console.log(reqData)
       const subCheck = subSchema.safeParse(reqData);
@@ -98,7 +98,7 @@ export function App() {
       )
     } catch (error) {
       console.error('Error:', error);
-      toast.error("Try Again"
+      toast.error(" " + error
         , { position: "top-center" }
       )
     }
@@ -152,6 +152,7 @@ export function App() {
                       topics.map(t => {
                         return (
                           <Toggle variant="outline" aria-label="Toggle italic"
+                            pressed={selectedTopic.has(t)}
                             onPressedChange={(pressed) => {
                               const newSet = new Set(selectedTopic)
                               if (pressed) newSet.add(t)
