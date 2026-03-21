@@ -56,7 +56,6 @@ export const startCronJobs = () => {
             console.log(`${toISOStringHK()} Starting database maintenance...`);
             await deleteOldArticles();
             await deleteUnSub();
-            console.log(toISOStringHK() + " END: Starting database maintenance...");
         })
     );
 
@@ -68,7 +67,6 @@ export const startCronJobs = () => {
             } catch (err) {
                 console.error(toISOStringHK() + " Daily digest failed:", err);
             }
-            console.log(toISOStringHK() + " END: Generating and sending daily email...");
         })
     );
 

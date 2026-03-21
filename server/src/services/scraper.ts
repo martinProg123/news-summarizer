@@ -35,7 +35,7 @@ export const scrapeNewsFromRSS = async (feedsUrl: string, site: string, topic: s
 
             if (existing) continue;
 
-            await randomWait(500, 2000);
+            await randomWait(5000, 20000);
 
             const { data: html } = await axios.get(item.link, {
                 headers: {
