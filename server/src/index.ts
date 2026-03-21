@@ -8,6 +8,7 @@ import { subscriberRouter } from './routes';
 import { startCronJobs, stopCronJobs } from './jobs';
 import { prismaDisconnect } from './db';
 import { terminateWorker } from './services/embedding';
+import { scrapeNewsFromRSS } from './services/scraper';
 import { toISOStringHK } from './utils/datetime';
 import { generateDailyDigest } from './services/email';
 
@@ -89,6 +90,5 @@ process.on('unhandledRejection', (reason) => {
 });
 
 startCronJobs();
-
 
 export default app;

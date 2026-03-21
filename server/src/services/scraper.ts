@@ -23,6 +23,7 @@ export const scrapeNewsFromRSS = async (feedsUrl: string, site: string, topic: s
         });
 
         const feed = await rssParser.parseString(response.data);
+        console.log(feedsUrl)
 
         for (const item of feed.items) {
             if (!item.link) continue;
@@ -46,6 +47,7 @@ export const scrapeNewsFromRSS = async (feedsUrl: string, site: string, topic: s
                 timeout: 10000,
             });
 
+            console.log(`after axios`)
             const dom = new JSDOM(html, { url: item.link });
             try {
                 const reader = new Readability(dom.window.document);
@@ -58,6 +60,7 @@ export const scrapeNewsFromRSS = async (feedsUrl: string, site: string, topic: s
                     try {
                         const textToEmbed = `${newsArticle.title || ""} ${cleanContent.slice(0, 2000)}`;
                         embedding = await generateEmbedding(textToEmbed);
+                        console.log(newsArticle.title+ ` after embedding`)
                     } catch (err) {
                         console.error("Failed to generate embedding:", err);
                     }

@@ -1,9 +1,8 @@
-import { parentPort } from 'node:worker_threads';
+import workerpool from 'workerpool';
 import { pipeline } from '@huggingface/transformers';
 
 let pipe = null;
 
-// Lazy-load the model to save memory until needed
 async function getExtractor() {
   if (!pipe) {
     pipe = await pipeline('feature-extraction', 'BAAI/bge-small-en-v1.5');
@@ -11,18 +10,10 @@ async function getExtractor() {
   return pipe;
 }
 
-parentPort.on('message', async (text) => {
-  try {
-    const embed = await getExtractor();
-    
-    // Generate embedding
-    const output = await embed(text, { pooling: 'mean', normalize: true });
-    
-    // Convert tensor to standard JS Array for pgvector
-    const vector = Array.from(output.data);
-    
-    parentPort.postMessage({ status: 'success', vector });
-  } catch (error) {
-    parentPort.postMessage({ status: 'error', error: error.message });
-  }
-});
+async function generateEmbedding(text) {
+  const embed = await getExtractor();
+  const output = await embed(text, { pooling: 'mean', normalize: true });
+  return Array.from(output.data);
+}
+
+workerpool.worker({ generateEmbedding });

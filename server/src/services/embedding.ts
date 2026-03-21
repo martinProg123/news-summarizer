@@ -1,47 +1,21 @@
-import { Worker } from 'node:worker_threads';
+import workerpool from 'workerpool';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-type workerMsg = { status: 'success' | 'error', vector?: number[], error?: string }
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const worker = new Worker(path.resolve(__dirname, '../embed-worker.js'));
 
-export function generateEmbedding(text: string): Promise<number[]> {
-    return new Promise((resolve, reject) => {
-        worker.postMessage(text);
+const NUM_WORKERS = parseInt(process.env.EMBED_WORKERS || '4', 10);
 
-        const onMessage = (response: workerMsg) => {
-            if (response.status === 'success' && response.vector) {
-                resolve(response.vector);
-            } else {
-                reject(new Error(response.error || 'No vector returned'));
-            }
-            cleanup();
-        };
+const pool = workerpool.pool(path.resolve(__dirname, '../embed-worker.js'), {
+    maxWorkers: NUM_WORKERS,
+    workerType: 'thread',
+});
 
-        const onError = (err: string) => {
-            reject(err);
-            cleanup();
-        };
-
-        const cleanup = () => {
-            worker.off('message', onMessage);
-            worker.off('error', onError);
-        };
-
-        worker.on('message', onMessage);
-        worker.on('error', onError);
-    });
+export async function generateEmbedding(text: string): Promise<number[]> {
+    return pool.exec('generateEmbedding', [text]);
 }
 
-export function terminateWorker(): Promise<number> {
-    return new Promise((resolve) => {
-        const timeout = setTimeout(() => resolve(worker.terminate()), 500);
-        worker.terminate().then(() => {
-            clearTimeout(timeout);
-            resolve(0);
-        });
-    })
+export async function terminateWorker(): Promise<void> {
+    await pool.terminate();
 }
