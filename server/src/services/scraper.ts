@@ -5,6 +5,7 @@ import { Readability } from '@mozilla/readability';
 import { prisma } from '../db';
 import { getRandomUserAgent, randomWait } from '../utils/http';
 import { generateEmbedding } from './embedding';
+import { toISOStringHK } from 'src/utils';
 
 const rssParser = new Parser({
     headers: {
@@ -73,7 +74,7 @@ export const scrapeNewsFromRSS = async (feedsUrl: string, site: string, topic: s
                         dateString = item.pubDate;
                     }
 
-                    const publishDate = dateString ? new Date(dateString) : new Date();
+                    const publishDate = dateString ? toISOStringHK(new Date(dateString)) : toISOStringHK(new Date());
 
                     if (embedding) {
                         const embeddingStr = `[${embedding.join(',')}]`;

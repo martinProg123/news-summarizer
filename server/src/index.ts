@@ -47,7 +47,6 @@ async function shutdown(signal: string) {
         process.exit(1);
     }, SHUTDOWN_TIMEOUT);
 
-    forceExitTimer.unref();
     try {
         stopCronJobs();
         await terminateWorker();
@@ -76,19 +75,22 @@ async function shutdown(signal: string) {
     }
 }
 
-process.on('SIGINT', () => shutdown('SIGINT'));
-process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.once('SIGINT', () => shutdown('SIGINT'));
+process.once('SIGTERM', () => shutdown('SIGTERM'));
 
-process.on('uncaughtException', (error) => {
+process.once('uncaughtException', (error) => {
     console.error('Uncaught Exception:', error);
     shutdown('uncaughtException');
 });
 
-process.on('unhandledRejection', (reason) => {
+process.once('unhandledRejection', (reason) => {
     console.error('Unhandled Rejection:', reason);
     shutdown('unhandledRejection');
 });
 
 startCronJobs();
+
+// (async () => {
+// })()
 
 export default app;
