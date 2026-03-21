@@ -62,7 +62,11 @@ export const startCronJobs = () => {
     tasks.push(
         cron.schedule('0 8 * * *', async () => {
             console.log(toISOStringHK() + " Generating and sending daily email...");
-            await generateDailyDigest();
+            try {
+                await generateDailyDigest();
+            } catch (err) {
+                console.error(toISOStringHK() + " Daily digest failed:", err);
+            }
         })
     );
 
