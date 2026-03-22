@@ -36,14 +36,14 @@ export const generateDailyDigest = async () => {
     for (const [topic, topicQuery] of Object.entries(topicQueries)) {
         console.log(`${toISOStringHK()} Processing topic: ${topic}`);
 
-        let articles: { id: BigInt; title: string; url: string; content: string; embedding: any; publishAt: Date }[];
+        let articles: { id: BigInt; title: string; url: string; content: string; publishAt: Date }[];
 
         try {
             const topicEmbedding = await generateEmbedding(topicQuery);
             const embeddingStr = `[${topicEmbedding.join(',')}]`;
 
             const rawArticles = await prisma.$queryRaw<any[]>`
-                SELECT id, title, url, content, embedding, "publish_at" as "publishAt"
+                SELECT id, title, url, content, "publish_at" as "publishAt"
                 FROM article
                 WHERE "publish_at" >= ${oneDayAgo}
                   AND topic = ${topic}
@@ -55,7 +55,7 @@ export const generateDailyDigest = async () => {
 
             if (articles.length < 10) {
                 const fallbackArticles = await prisma.$queryRaw<any[]>`
-                    SELECT id, title, url, content, embedding, "publish_at" as "publishAt"
+                    SELECT id, title, url, content, "publish_at" as "publishAt"
                     FROM article
                     WHERE "publish_at" >= ${oneDayAgo}
                       AND topic = ${topic}
@@ -69,7 +69,7 @@ export const generateDailyDigest = async () => {
         } catch (err) {
             console.error(`Vector search failed for ${topic}, using fallback:`, err);
             articles = await prisma.$queryRaw<any[]>`
-                SELECT id, title, url, content, embedding, "publish_at" as "publishAt"
+                SELECT id, title, url, content, "publish_at" as "publishAt"
                 FROM article
                 WHERE "publish_at" >= ${oneDayAgo}
                   AND topic = ${topic}
@@ -81,7 +81,7 @@ export const generateDailyDigest = async () => {
         console.log(`Found ${articles.length} articles for topic: ${topic}`);
 
         if (articles.length === 0) {
-            topicSummaryHtml.set(topic, `<h2>Topic: ${topic}</h2><p>No articles found.</p>`);
+            topicSummaryHtml.set(topic, `<h2>${topic}</h2><p>No articles found.</p>`);
             continue;
         }
 
